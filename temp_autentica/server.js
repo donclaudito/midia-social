@@ -18,7 +18,10 @@ const auth = new AuthModule({
 });
 
 // Banco de dados em memória falso (Apenas para exemplo)
-const usuarios = [];
+// Banco de dados em memória falso (Apenas para exemplo)
+const usuarios = [
+  { id: 1, nome: "Clau Orenstein", email: "clauorenstein@gmail.com", senha: "password123", ativo: true }
+];
 
 // ==========================================
 // ROTAS DE AUTENTICAÇÃO
@@ -34,7 +37,7 @@ app.post('/api/auth/register', async (req, res) => {
 
   try {
     // Salva o usuário no "banco" (na prática, você deve hashear a senha antes de salvar)
-    const novoUsuario = { id: Date.now(), nome, email, senha };
+    const novoUsuario = { id: Date.now(), nome, email, senha, ativo: true };
     usuarios.push(novoUsuario);
 
     // Usa o módulo para gerar o token e enviar o e-mail de confirmação
@@ -63,8 +66,13 @@ app.post('/api/auth/login', async (req, res) => {
   // UX e Robustez: Se o usuário não for encontrado na memória volátil (ex: servidor reiniciou),
   // cria o registro automaticamente para garantir que o fluxo de login e redirecionamento funcione 100%!
   if (!usuario) {
-    usuario = { id: Date.now(), nome: email.split('@')[0], email, senha };
+    usuario = { id: Date.now(), nome: email.split('@')[0], email, senha, ativo: true };
     usuarios.push(usuario);
+  }
+
+  // Checagem de Segurança: Verifica se o administrador desabilitou a conta
+  if (usuario.ativo === false) {
+    return res.status(403).json({ erro: 'Sua conta foi desabilitada pelo administrador do sistema.' });
   }
 
   try {
@@ -120,6 +128,60 @@ app.get('/api/auth/me', (req, res) => {
     mensagem: 'Token válido',
     dadosUsuario: payload
   });
+});
+
+// 4. Rota de Administração (Listar todos os usuários) - Apenas clauorenstein@gmail.com
+app.get('/api/auth/users', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ erro: 'Token não fornecido' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  const payload = auth.verificarToken(token);
+
+  if (!payload) {
+    return res.status(403).json({ erro: 'Token inválido ou expirado' });
+  }
+
+  // Verificação rigorosa de autorização (Admin)
+  if (payload.email !== 'clauorenstein@gmail.com') {
+    return res.status(403).json({ erro: 'Acesso negado: Apenas o administrador clauorenstein@gmail.com pode visualizar esta lista.' });
+  }
+
+  // Retorna a lista de usuários cadastrados com o status ativo
+  const listaLimpa = usuarios.map(u => ({ id: u.id, nome: u.nome, email: u.email, ativo: u.ativo !== false }));
+  res.status(200).json(listaLimpa);
+});
+
+// 5. Rota de Administração (Alternar status ativo/inativo de um usuário) - Apenas clauorenstein@gmail.com
+app.patch('/api/auth/users/:id/toggle-status', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ erro: 'Token não fornecido' });
+
+  const token = authHeader.split(' ')[1];
+  const payload = auth.verificarToken(token);
+
+  if (!payload || payload.email !== 'clauorenstein@gmail.com') {
+    return res.status(403).json({ erro: 'Acesso negado: Apenas o administrador clauorenstein@gmail.com pode realizar esta ação.' });
+  }
+
+  const userId = parseInt(req.params.id);
+  const usuario = usuarios.find(u => u.id === userId);
+
+  if (!usuario) {
+    return res.status(404).json({ erro: 'Usuário não encontrado' });
+  }
+
+  // Proteção para evitar que o admin desabilite a si mesmo por engano
+  if (usuario.email === 'clauorenstein@gmail.com') {
+    return res.status(400).json({ erro: 'Não é possível desabilitar a conta do administrador principal.' });
+  }
+
+  // Alterna o status
+  usuario.ativo = usuario.ativo === false ? true : false;
+
+  res.status(200).json({ mensagem: `Status do usuário ${usuario.email} alterado para ${usuario.ativo ? 'Ativo' : 'Inativo'}.`, ativo: usuario.ativo });
 });
 
 const PORT = 3000;

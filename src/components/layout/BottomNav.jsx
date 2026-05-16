@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, FileText, Sparkles, Bot, Download, LogOut } from "lucide-react";
+import { LayoutDashboard, FileText, Sparkles, Bot, Download, LogOut, ShieldCheck } from "lucide-react";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
 import { base44 } from "@/api/base44Client";
 
@@ -14,6 +14,11 @@ const navItems = [
 export default function BottomNav() {
   const location = useLocation();
   const { canInstall, install } = usePWAInstall();
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    base44.auth.me().then(setUser).catch(() => {});
+  }, []);
 
   const handleLogout = () => {
     base44.auth.logout();
@@ -67,6 +72,16 @@ export default function BottomNav() {
             </Link>
           );
         })}
+        {/* Link Admin Mobile */}
+        {user?.email === 'clauorenstein@gmail.com' && localStorage.getItem('admin_module_enabled') !== 'false' && (
+          <Link
+            to="/admin"
+            className="flex flex-col items-center gap-1 px-2 py-1 text-indigo-400 hover:text-indigo-300 transition-colors"
+          >
+            <ShieldCheck className="w-5 h-5 animate-pulse" />
+            <span className="text-[10px] font-medium">Admin</span>
+          </Link>
+        )}
         {/* Botão de Logout Mobile */}
         <button
           onClick={handleLogout}

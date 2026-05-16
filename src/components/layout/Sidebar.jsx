@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, FileText, Sparkles, Menu, X, Bot, Download, LogOut } from "lucide-react";
+import { LayoutDashboard, FileText, Sparkles, Menu, X, Bot, Download, LogOut, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
@@ -67,6 +67,17 @@ export default function Sidebar() {
           <Bot className="w-[18px] h-[18px]" />
           Agente
         </a>
+
+        {user?.email === 'clauorenstein@gmail.com' && (
+          <Link
+            to="/admin"
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 mt-2 border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 shadow-[0_0_15px_rgba(99,102,241,0.15)]"
+          >
+            <ShieldCheck className="w-[18px] h-[18px] text-indigo-400 animate-pulse" />
+            Painel Admin
+          </Link>
+        )}
 
         {canInstall && (
           <button

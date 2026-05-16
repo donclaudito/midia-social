@@ -12,6 +12,7 @@ import AIPostGenerator from '@/pages/AIPostGenerator';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import ConfirmarEmail from '@/pages/ConfirmarEmail';
+import Admin from '@/pages/Admin';
 
 const LoadingFallback = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-slate-950">
@@ -36,6 +37,7 @@ function App() {
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/posts" element={<AllPosts />} />
                 <Route path="/gerar" element={<AIPostGenerator />} />
+                <Route path="/admin" element={<Admin />} />
               </Route>
             </Route>
 
