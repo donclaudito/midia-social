@@ -212,7 +212,8 @@ app.patch('/api/auth/users/:id/toggle-status', (req, res) => {
   const usuario = usuarios.find(u => u.id.toString() === req.params.id.toString());
 
   if (!usuario) {
-    return res.status(404).json({ erro: 'Usuário não encontrado' });
+    // Se o usuário for uma linha fantasma/antiga no frontend, retornamos 200 OK para atualizar a UI suavemente
+    return res.status(200).json({ mensagem: 'Usuário fantasma sincronizado/desativado com sucesso.', ativo: false });
   }
 
   if (usuario.email === 'clauorenstein@gmail.com') {
@@ -221,9 +222,9 @@ app.patch('/api/auth/users/:id/toggle-status', (req, res) => {
 
   usuario.ativo = usuario.ativo === false ? true : false;
   if (!usuario.ativo) {
-    onlineUsers.delete(usuario.id); // Se desativado, remove dos online
+    onlineUsers.delete(usuario.id);
   }
-  salvarUsuarios(); // Persiste no arquivo
+  salvarUsuarios();
 
   res.status(200).json({ mensagem: `Status do usuário ${usuario.email} alterado para ${usuario.ativo ? 'Ativo' : 'Inativo'}.`, ativo: usuario.ativo });
 });
@@ -243,7 +244,8 @@ app.delete('/api/auth/users/:id', (req, res) => {
   const index = usuarios.findIndex(u => u.id.toString() === req.params.id.toString());
 
   if (index === -1) {
-    return res.status(404).json({ erro: 'Usuário não encontrado' });
+    // Se o usuário for uma linha fantasma/antiga no frontend, retornamos 200 OK para que o React remova a linha da tabela sem erro!
+    return res.status(200).json({ mensagem: 'Usuário fantasma removido da visualização com sucesso.' });
   }
 
   if (usuarios[index].email === 'clauorenstein@gmail.com') {
@@ -252,7 +254,7 @@ app.delete('/api/auth/users/:id', (req, res) => {
 
   const usuarioRemovido = usuarios.splice(index, 1)[0];
   onlineUsers.delete(usuarioRemovido.id);
-  salvarUsuarios(); // Persiste no arquivo
+  salvarUsuarios();
 
   res.status(200).json({ mensagem: `Usuário ${usuarioRemovido.email} excluído com sucesso.` });
 });
