@@ -1,11 +1,13 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
 const AuthModule = require('./index');
 
 const app = express();
 app.use(express.json());
-app.use(cors()); // Permite que seus outros apps (como Littera ou PostArchitect) acessem esta API
+app.use(cors()); // Permite que seus outros apps acessem esta API
 app.use(express.static('public')); // Serve a página de demonstração/preview
 
 // Instancia o módulo de autenticação usando Variáveis de Ambiente (Segurança)
@@ -17,10 +19,33 @@ const auth = new AuthModule({
   siteUrl: process.env.FRONTEND_URL || 'http://localhost:5173'
 });
 
-// Banco de dados em memória falso (Apenas para exemplo)
-const usuarios = [
-  { id: 1, nome: "Clau Orenstein", email: "clauorenstein@gmail.com", senha: "password123", ativo: true }
-];
+const usuariosFilePath = path.join(__dirname, 'usuarios.json');
+
+// Carrega usuários do arquivo ou inicializa com o administrador principal
+let usuarios = [];
+try {
+  if (fs.existsSync(usuariosFilePath)) {
+    usuarios = JSON.parse(fs.readFileSync(usuariosFilePath, 'utf8'));
+  } else {
+    usuarios = [
+      { id: 1, nome: "Clau Orenstein", email: "clauorenstein@gmail.com", senha: "password123", ativo: true }
+    ];
+    fs.writeFileSync(usuariosFilePath, JSON.stringify(usuarios, null, 2), 'utf8');
+  }
+} catch (err) {
+  console.error('Erro ao carregar usuarios.json, usando padrão na memória:', err);
+  usuarios = [
+    { id: 1, nome: "Clau Orenstein", email: "clauorenstein@gmail.com", senha: "password123", ativo: true }
+  ];
+}
+
+const salvarUsuarios = () => {
+  try {
+    fs.writeFileSync(usuariosFilePath, JSON.stringify(usuarios, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Erro ao salvar usuarios.json:', err);
+  }
+};
 
 // Set para rastrear usuários online (IDs) em tempo real
 const onlineUsers = new Set();
@@ -38,11 +63,10 @@ app.post('/api/auth/register', async (req, res) => {
   }
 
   try {
-    // Salva o usuário no "banco"
     const novoUsuario = { id: Date.now(), nome, email, senha, ativo: true };
     usuarios.push(novoUsuario);
+    salvarUsuarios(); // Persiste no arquivo
 
-    // Usa o módulo para gerar o token e enviar o e-mail de confirmação
     const token = await auth.registrarEEnviarConfirmacao(email, { id: novoUsuario.id });
     
     res.status(201).json({ 
@@ -68,16 +92,15 @@ app.post('/api/auth/login', async (req, res) => {
   if (!usuario) {
     usuario = { id: Date.now(), nome: email.split('@')[0], email, senha, ativo: true };
     usuarios.push(usuario);
+    salvarUsuarios(); // Persiste no arquivo
   }
 
-  // Checagem de Segurança: Verifica se o administrador desabilitou a conta
   if (usuario.ativo === false) {
     return res.status(403).json({ erro: 'Sua conta foi desabilitada pelo administrador do sistema.' });
   }
 
   try {
     const token = auth.gerarToken({ email: usuario.email, id: usuario.id });
-    // Marca o usuário como online imediatamente no login
     onlineUsers.add(usuario.id);
 
     res.status(200).json({
@@ -136,8 +159,6 @@ app.get('/api/auth/me', (req, res) => {
     return res.status(403).json({ erro: 'Token inválido ou expirado' });
   }
 
-  // Sempre que o frontend valida a sessão (ex: abrir o app ou recarregar a página),
-  // garantimos que o usuário seja marcado como online em tempo real!
   if (payload.id) {
     onlineUsers.add(payload.id);
   }
@@ -148,7 +169,7 @@ app.get('/api/auth/me', (req, res) => {
   });
 });
 
-// 4. Rota de Administração (Listar todos os usuários com status ativo e online) - Apenas clauorenstein@gmail.com
+// 4. Rota de Administração (Listar todos os usuários) - Apenas clauorenstein@gmail.com
 app.get('/api/auth/users', (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
@@ -166,7 +187,6 @@ app.get('/api/auth/users', (req, res) => {
     return res.status(403).json({ erro: 'Acesso negado: Apenas o administrador clauorenstein@gmail.com pode visualizar esta lista.' });
   }
 
-  // Retorna a lista de usuários com as flags ativo e online
   const listaLimpa = usuarios.map(u => ({ 
     id: u.id, 
     nome: u.nome, 
@@ -203,6 +223,7 @@ app.patch('/api/auth/users/:id/toggle-status', (req, res) => {
   if (!usuario.ativo) {
     onlineUsers.delete(usuario.id); // Se desativado, remove dos online
   }
+  salvarUsuarios(); // Persiste no arquivo
 
   res.status(200).json({ mensagem: `Status do usuário ${usuario.email} alterado para ${usuario.ativo ? 'Ativo' : 'Inativo'}.`, ativo: usuario.ativo });
 });
@@ -231,6 +252,7 @@ app.delete('/api/auth/users/:id', (req, res) => {
 
   const usuarioRemovido = usuarios.splice(index, 1)[0];
   onlineUsers.delete(usuarioRemovido.id);
+  salvarUsuarios(); // Persiste no arquivo
 
   res.status(200).json({ mensagem: `Usuário ${usuarioRemovido.email} excluído com sucesso.` });
 });
@@ -238,5 +260,5 @@ app.delete('/api/auth/users/:id', (req, res) => {
 const PORT = 3000;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor de Autenticação rodando em http://localhost:${PORT}`);
-  console.log(`Configure as credenciais do Gmail no arquivo server.js para testar!`);
+  console.log(`💾 Persistência ativada: usuarios.json`);
 });
