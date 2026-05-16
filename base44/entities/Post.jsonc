@@ -1,0 +1,35 @@
+{
+  "name": "Post",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Title of the LinkedIn post"
+    },
+    "content": {
+      "type": "string",
+      "description": "Full content of the post"
+    },
+    "tags": {
+      "type": "string",
+      "description": "Comma-separated tags"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "ready"
+      ],
+      "default": "draft",
+      "description": "Post status"
+    },
+    "image_url": {
+      "type": "string",
+      "description": "URL of the image attached to the post"
+    }
+  },
+  "required": [
+    "title",
+    "content"
+  ]
+}
