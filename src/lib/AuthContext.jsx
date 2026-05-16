@@ -26,13 +26,20 @@ export const AuthProvider = ({ children }) => {
   };
 
   const checkUserAuth = async () => {
-    // Mock user
     setIsLoadingAuth(true);
-    const currentUser = await base44.auth.me();
-    setUser(currentUser);
-    setIsAuthenticated(true);
-    setIsLoadingAuth(false);
-    setAuthChecked(true);
+    try {
+      const currentUser = await base44.auth.me();
+      setUser(currentUser);
+      setIsAuthenticated(true);
+      setAuthError(null);
+    } catch (error) {
+      setUser(null);
+      setIsAuthenticated(false);
+      setAuthError({ type: 'auth_required', message: error.message });
+    } finally {
+      setIsLoadingAuth(false);
+      setAuthChecked(true);
+    }
   };
 
   const logout = (shouldRedirect = true) => {

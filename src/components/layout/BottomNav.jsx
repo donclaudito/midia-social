@@ -1,7 +1,8 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, FileText, Sparkles, Bot, Download } from "lucide-react";
+import { LayoutDashboard, FileText, Sparkles, Bot, Download, LogOut } from "lucide-react";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
+import { base44 } from "@/api/base44Client";
 
 const navItems = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
@@ -14,14 +15,18 @@ export default function BottomNav() {
   const location = useLocation();
   const { canInstall, install } = usePWAInstall();
 
+  const handleLogout = () => {
+    base44.auth.logout();
+  };
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-card border-t border-border"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-      <div className="flex items-center justify-around h-16">
+      <div className="flex items-center justify-around h-16 px-2">
         {canInstall && (
           <button
             onClick={install}
-            className="flex flex-col items-center gap-1 px-3 py-1 text-primary"
+            className="flex flex-col items-center gap-1 px-2 py-1 text-primary"
           >
             <Download className="w-5 h-5" />
             <span className="text-[10px] font-medium">Instalar</span>
@@ -38,7 +43,7 @@ export default function BottomNav() {
                 href={item.href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex flex-col items-center gap-1 px-3 py-1 text-muted-foreground"
+                className="flex flex-col items-center gap-1 px-2 py-1 text-muted-foreground"
               >
                 <Icon className="w-5 h-5" />
                 <span className="text-[10px] font-medium">{item.label}</span>
@@ -50,7 +55,7 @@ export default function BottomNav() {
             <Link
               key={item.path}
               to={item.path}
-              className={`flex flex-col items-center gap-1 px-3 py-1 transition-colors ${
+              className={`flex flex-col items-center gap-1 px-2 py-1 transition-colors ${
                 isActive ? "text-primary" : "text-muted-foreground"
               }`}
             >
@@ -62,6 +67,15 @@ export default function BottomNav() {
             </Link>
           );
         })}
+        {/* Botão de Logout Mobile */}
+        <button
+          onClick={handleLogout}
+          title="Sair (Logout)"
+          className="flex flex-col items-center gap-1 px-2 py-1 text-destructive hover:text-destructive/80 transition-colors"
+        >
+          <LogOut className="w-5 h-5" />
+          <span className="text-[10px] font-medium">Sair</span>
+        </button>
       </div>
     </nav>
   );

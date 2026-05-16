@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, FileText, Sparkles, Menu, X, Bot, Download } from "lucide-react";
+import { LayoutDashboard, FileText, Sparkles, Menu, X, Bot, Download, LogOut } from "lucide-react";
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { usePWAInstall } from "@/hooks/usePWAInstall";
@@ -81,21 +81,22 @@ export default function Sidebar() {
 
       {user && (
         <div className="mt-auto pt-6 border-t border-border">
-          <div className="px-4 py-3 bg-secondary/50 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-xs font-bold text-primary-foreground">
+          <div className="p-4 bg-secondary/50 rounded-2xl border border-border/50 backdrop-blur-sm flex items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-sm font-bold text-primary-foreground shadow-md">
                 {user.full_name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate">{user.full_name || "Usuário"}</p>
+                <p className="text-xs font-semibold truncate text-foreground">{user.full_name || "Usuário"}</p>
                 <p className="text-[10px] text-muted-foreground truncate">{user.email}</p>
               </div>
             </div>
             <button
               onClick={handleLogout}
-              className="mt-2 text-[11px] text-destructive hover:underline"
+              title="Sair (Logout)"
+              className="p-2.5 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground border border-destructive/20 transition-all duration-200 shadow-sm group active:scale-95"
             >
-              Sair
+              <LogOut className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
             </button>
           </div>
         </div>
