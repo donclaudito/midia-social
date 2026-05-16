@@ -43,6 +43,23 @@ export default function Admin() {
       .catch((err) => setError(err.message));
   };
 
+  const deleteUser = (userId) => {
+    if (!window.confirm('Tem certeza que deseja excluir este usuário permanentemente?')) return;
+    const token = localStorage.getItem('authToken');
+    fetch(`http://localhost:3000/api/auth/users/${userId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Falha ao excluir usuário.');
+        return res.json();
+      })
+      .then(() => {
+        setUsersList((prev) => prev.filter((u) => u.id !== userId));
+      })
+      .catch((err) => setError(err.message));
+  };
+
   useEffect(() => {
     if (moduleEnabled && user?.email === 'clauorenstein@gmail.com') {
       const token = localStorage.getItem('authToken');
@@ -271,16 +288,24 @@ export default function Admin() {
                     </td>
                     <td className="py-4 px-6">
                       {u.email !== 'clauorenstein@gmail.com' ? (
-                        <button
-                          onClick={() => toggleUserStatus(u.id)}
-                          className={`px-3 py-1.5 rounded-xl font-semibold text-xs transition-all border shadow-sm active:scale-95 ${
-                            u.ativo
-                              ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500 hover:text-white'
-                              : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white'
-                          }`}
-                        >
-                          {u.ativo ? 'Desabilitar Acesso' : 'Habilitar Acesso'}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => toggleUserStatus(u.id)}
+                            className={`px-3 py-1.5 rounded-xl font-semibold text-xs transition-all border shadow-sm active:scale-95 ${
+                              u.ativo
+                                ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500 hover:text-white'
+                                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500 hover:text-white'
+                            }`}
+                          >
+                            {u.ativo ? 'Desabilitar' : 'Habilitar'}
+                          </button>
+                          <button
+                            onClick={() => deleteUser(u.id)}
+                            className="px-3 py-1.5 rounded-xl font-semibold text-xs transition-all border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white shadow-sm active:scale-95"
+                          >
+                            Excluir
+                          </button>
+                        </div>
                       ) : (
                         <span className="text-xs text-slate-500 italic">Admin Principal</span>
                       )}

@@ -18,10 +18,12 @@ const auth = new AuthModule({
 });
 
 // Banco de dados em memória falso (Apenas para exemplo)
-// Banco de dados em memória falso (Apenas para exemplo)
 const usuarios = [
   { id: 1, nome: "Clau Orenstein", email: "clauorenstein@gmail.com", senha: "password123", ativo: true }
 ];
+
+// Set para rastrear usuários online (IDs) em tempo real
+const onlineUsers = new Set();
 
 // ==========================================
 // ROTAS DE AUTENTICAÇÃO
@@ -36,7 +38,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 
   try {
-    // Salva o usuário no "banco" (na prática, você deve hashear a senha antes de salvar)
+    // Salva o usuário no "banco"
     const novoUsuario = { id: Date.now(), nome, email, senha, ativo: true };
     usuarios.push(novoUsuario);
 
@@ -63,8 +65,6 @@ app.post('/api/auth/login', async (req, res) => {
 
   let usuario = usuarios.find(u => u.email === email && u.senha === senha);
   
-  // UX e Robustez: Se o usuário não for encontrado na memória volátil (ex: servidor reiniciou),
-  // cria o registro automaticamente para garantir que o fluxo de login e redirecionamento funcione 100%!
   if (!usuario) {
     usuario = { id: Date.now(), nome: email.split('@')[0], email, senha, ativo: true };
     usuarios.push(usuario);
@@ -77,6 +77,9 @@ app.post('/api/auth/login', async (req, res) => {
 
   try {
     const token = auth.gerarToken({ email: usuario.email, id: usuario.id });
+    // Marca o usuário como online imediatamente no login
+    onlineUsers.add(usuario.id);
+
     res.status(200).json({
       mensagem: 'Login realizado com sucesso!',
       token,
@@ -88,18 +91,28 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// 1.6. Rota de Logout (limpa a sessão online)
+app.post('/api/auth/logout', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ erro: 'Token não fornecido' });
+  const token = authHeader.split(' ')[1];
+  const payload = auth.verificarToken(token);
+  if (payload && payload.id) {
+    onlineUsers.delete(payload.id);
+  }
+  res.status(200).json({ mensagem: 'Logout realizado com sucesso' });
+});
+
 // 2. Rota para solicitar redefinição de senha
 app.post('/api/auth/recover-password', async (req, res) => {
   const { email } = req.body;
 
-  // Verifica se o usuário existe
   const usuarioExistente = usuarios.find(u => u.email === email);
   if (!usuarioExistente) {
     return res.status(404).json({ erro: 'Usuário não encontrado' });
   }
 
   try {
-    // Usa o módulo para enviar e-mail de redefinição
     await auth.solicitarRedefinicaoSenha(email, { id: usuarioExistente.id });
     res.status(200).json({ mensagem: 'E-mail de recuperação enviado com sucesso!' });
   } catch (error) {
@@ -108,7 +121,7 @@ app.post('/api/auth/recover-password', async (req, res) => {
   }
 });
 
-// 3. Rota protegida de exemplo (Verificar Token)
+// 3. Rota protegida de exemplo (Verificar Token e Atualizar Status Online)
 app.get('/api/auth/me', (req, res) => {
   const authHeader = req.headers.authorization;
   
@@ -116,12 +129,17 @@ app.get('/api/auth/me', (req, res) => {
     return res.status(401).json({ erro: 'Token não fornecido' });
   }
 
-  // Pega o token (padrão Bearer Token)
   const token = authHeader.split(' ')[1];
   const payload = auth.verificarToken(token);
 
   if (!payload) {
     return res.status(403).json({ erro: 'Token inválido ou expirado' });
+  }
+
+  // Sempre que o frontend valida a sessão (ex: abrir o app ou recarregar a página),
+  // garantimos que o usuário seja marcado como online em tempo real!
+  if (payload.id) {
+    onlineUsers.add(payload.id);
   }
 
   res.status(200).json({
@@ -130,7 +148,7 @@ app.get('/api/auth/me', (req, res) => {
   });
 });
 
-// 4. Rota de Administração (Listar todos os usuários) - Apenas clauorenstein@gmail.com
+// 4. Rota de Administração (Listar todos os usuários com status ativo e online) - Apenas clauorenstein@gmail.com
 app.get('/api/auth/users', (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
@@ -144,13 +162,18 @@ app.get('/api/auth/users', (req, res) => {
     return res.status(403).json({ erro: 'Token inválido ou expirado' });
   }
 
-  // Verificação rigorosa de autorização (Admin)
   if (payload.email !== 'clauorenstein@gmail.com') {
     return res.status(403).json({ erro: 'Acesso negado: Apenas o administrador clauorenstein@gmail.com pode visualizar esta lista.' });
   }
 
-  // Retorna a lista de usuários cadastrados com o status ativo
-  const listaLimpa = usuarios.map(u => ({ id: u.id, nome: u.nome, email: u.email, ativo: u.ativo !== false }));
+  // Retorna a lista de usuários com as flags ativo e online
+  const listaLimpa = usuarios.map(u => ({ 
+    id: u.id, 
+    nome: u.nome, 
+    email: u.email, 
+    ativo: u.ativo !== false,
+    online: onlineUsers.has(u.id)
+  }));
   res.status(200).json(listaLimpa);
 });
 
@@ -173,15 +196,45 @@ app.patch('/api/auth/users/:id/toggle-status', (req, res) => {
     return res.status(404).json({ erro: 'Usuário não encontrado' });
   }
 
-  // Proteção para evitar que o admin desabilite a si mesmo por engano
   if (usuario.email === 'clauorenstein@gmail.com') {
     return res.status(400).json({ erro: 'Não é possível desabilitar a conta do administrador principal.' });
   }
 
-  // Alterna o status
   usuario.ativo = usuario.ativo === false ? true : false;
+  if (!usuario.ativo) {
+    onlineUsers.delete(usuario.id); // Se desativado, remove dos online
+  }
 
   res.status(200).json({ mensagem: `Status do usuário ${usuario.email} alterado para ${usuario.ativo ? 'Ativo' : 'Inativo'}.`, ativo: usuario.ativo });
+});
+
+// 6. Rota de Administração (Excluir usuário) - Apenas clauorenstein@gmail.com
+app.delete('/api/auth/users/:id', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ erro: 'Token não fornecido' });
+
+  const token = authHeader.split(' ')[1];
+  const payload = auth.verificarToken(token);
+
+  if (!payload || payload.email !== 'clauorenstein@gmail.com') {
+    return res.status(403).json({ erro: 'Acesso negado: Apenas o administrador clauorenstein@gmail.com pode realizar esta ação.' });
+  }
+
+  const userId = parseInt(req.params.id);
+  const index = usuarios.findIndex(u => u.id === userId);
+
+  if (index === -1) {
+    return res.status(404).json({ erro: 'Usuário não encontrado' });
+  }
+
+  if (usuarios[index].email === 'clauorenstein@gmail.com') {
+    return res.status(400).json({ erro: 'Não é possível excluir a conta do administrador principal.' });
+  }
+
+  const usuarioRemovido = usuarios.splice(index, 1)[0];
+  onlineUsers.delete(usuarioRemovido.id);
+
+  res.status(200).json({ mensagem: `Usuário ${usuarioRemovido.email} excluído com sucesso.` });
 });
 
 const PORT = 3000;
