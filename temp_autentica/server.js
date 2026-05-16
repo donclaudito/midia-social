@@ -189,8 +189,7 @@ app.patch('/api/auth/users/:id/toggle-status', (req, res) => {
     return res.status(403).json({ erro: 'Acesso negado: Apenas o administrador clauorenstein@gmail.com pode realizar esta ação.' });
   }
 
-  const userId = parseInt(req.params.id);
-  const usuario = usuarios.find(u => u.id === userId);
+  const usuario = usuarios.find(u => u.id.toString() === req.params.id.toString());
 
   if (!usuario) {
     return res.status(404).json({ erro: 'Usuário não encontrado' });
@@ -220,8 +219,7 @@ app.delete('/api/auth/users/:id', (req, res) => {
     return res.status(403).json({ erro: 'Acesso negado: Apenas o administrador clauorenstein@gmail.com pode realizar esta ação.' });
   }
 
-  const userId = parseInt(req.params.id);
-  const index = usuarios.findIndex(u => u.id === userId);
+  const index = usuarios.findIndex(u => u.id.toString() === req.params.id.toString());
 
   if (index === -1) {
     return res.status(404).json({ erro: 'Usuário não encontrado' });
